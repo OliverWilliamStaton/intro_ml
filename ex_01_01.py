@@ -19,7 +19,7 @@ print(">>> Visualizing data")
 country_stats.plot(kind='scatter',x='GDP per capita',y='Life satisfaction')
 plt.show()
 
-# Select a linear model
+# Select a model
 print(">>> Model being selected")
 model = sklearn.linear_model.LinearRegression()
 # model = sklearn.linear_model.KNeighborsRegression()
