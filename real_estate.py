@@ -4,6 +4,7 @@ import urllib.request
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pandas.plotting import scatter_matrix
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
 HOUSING_PATH = os.path.join("datasets","housing")
@@ -56,7 +57,7 @@ housing["income_cat"] = pd.cut(housing["median_income"],
 	bins=[0., 1.5, 3.0, 4.5, 6., np.inf],
 	labels=[1, 2, 3, 4, 5])
 housing["income_cat"].hist()
-plt.show()
+# plt.show()
 
 # do stratified sampling based on income category
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -77,5 +78,52 @@ strat_test_set["income_cat"].value_counts()/len(strat_test_set)
 # finally, remove the "income_cat" attribute
 for set_ in (strat_train_set,strat_test_set):
 	set_.drop("income_cat",axis=1,inplace=True)
+
+# copy training set to avoid damage during analysis
+housing = strat_train_set.copy()
+
+### Now, discover and visualize the data to gain insights
+# this includes visualizing overall data, analysing linear and scatter plot correlations
+# additionally, experiment with attribute combinations
+
+# visualization of geographical information of all districts
+# add predefined color map (called "jet") for population and price
+housing.plot(kind="scatter",x="longitude",y="latitude",alpha=0.1,
+	s=housing["population"]/100,label="population",figsize=(10,7),
+	c="median_house_value",cmap=plt.get_cmap("jet"),colorbar=True)
+plt.legend()
+
+# check for linear correlations by computing the standard correlation coefficient (Pearson's r)
+corr_matrix = housing.corr()
+corr_matrix["median_house_value"].sort_values(ascending=False)
+
+# check for other scatter plot correlations between several promising attributes
+attributes = ["median_house_value","median_income","total_rooms","housing_median_age"]
+scatter_matrix(housing[attributes],figsize=(12,8))
+
+# the most promising attribute to predict median house value is the median income
+# zoom in on their correction scatterplot
+housing.plot(kind="scatter",x="median_income",y="median_house_value",alpha=0.1)
+# plt.show()
+
+# experiment with attribute combinations
+# combine to determine rooms/household
+housing["rooms_per_household"] = housing["total_rooms"]/housing["households"]
+# combine to determine bedrooms/room
+housing["bedrooms_per_room"] = housing["total_bedrooms"]/housing["total_rooms"]
+# combine to determine population/household
+housing["population_per_household"] = housing["population"]/housing["households"]
+corr_matrix = housing.corr()
+# check for linear correlations with these new combined attributes
+corr_matrix["median_house_value"].sort_values(ascending=False)
+
+### In conclusion from the above analysis, the following observations were made:
+# - identified a few data quirks that may need to be cleaned up before feeding into ML algorithm
+# - found interesting correlations between attributes, in particular with the target attribute
+# - noticed some attributes have tail-heavy distribution
+# - bedrooms_per_room attribute is much more correlated than total number of rooms or bedrooms
+
+### Prepare the data for ML algorithms
+# TBD...
 
 
