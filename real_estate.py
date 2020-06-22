@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pandas.plotting import scatter_matrix
+import transformations as tf
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
 HOUSING_PATH = os.path.join("datasets","housing")
@@ -124,6 +125,37 @@ corr_matrix["median_house_value"].sort_values(ascending=False)
 # - bedrooms_per_room attribute is much more correlated than total number of rooms or bedrooms
 
 ### Prepare the data for ML algorithms
-# TBD...
+
+# revert to a clean training set
+# separate predictors and labels
+housing = strat_train_set.drop("median_house_value",axis=1)
+housing_labels = strat_train_set["median_house_value"].copy()
+
+# ML algorithms cannot work with missing features. Here are 3 options to handle such a case.
+# Option 1: get rid of corresponding districts
+housing.dropna(subset=["total_bedrooms"])
+# Option 2: get rid of the whole attribute
+housing.drop("total_bedrooms",axis=1)
+# Option 3: set the values to some value (zero, the mean, the median, etc.)
+median = housing["total_bedrooms"].median()
+housing["total_bedrooms"].fillna(median,inplace=True)
+
+from sklearn.impute import SimpleImputer
+# replace each attribute's missing values with the median of that attribute
+imputer = SimpleImputer(strategy="median")
+# create copy of data without text attribute "ocean_proximity"
+housing_num = housing.drop("ocean_proximity",axis=1)
+# fit the imputer instance to training data
+imputer.fit(housing_num)
+# use the "trained" imputer to transform training set; replace missing values with learned medians
+x = imputer.transform(housing_num)
+# put it back into pandas DataFrame
+housing_tr = pd.DataFrame(x,columns=housing_num.columns,index=housing_num.index)
+
+
+
+
+
+
 
 
