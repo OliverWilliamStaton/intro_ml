@@ -6,6 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pandas.plotting import scatter_matrix
 import transformations as tf
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
 HOUSING_PATH = os.path.join("datasets","housing")
@@ -152,10 +156,49 @@ x = imputer.transform(housing_num)
 # put it back into pandas DataFrame
 housing_tr = pd.DataFrame(x,columns=housing_num.columns,index=housing_num.index)
 
+### Handling text and categorical attributes
 
+# convert categories from text to numbers
+housing_cat = housing[["ocean_proximity"]]
+ordinal_encoder = OrdinalEncoder()
+housing_cat_encoded = ordinal_encoder.fit_transform(housing_cat)
+# see 1D array of categories for each categorical attribute
+ordinal_encoder.categories_
 
+# apply one-hot encoding to break the assumption of nearby similarities
+from sklearn.preprocessing import OneHotEncoder
+cat_encoder = OneHotEncoder()
+housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
+# see 1HOT encoding array
+housing_cat_1hot.toarray()
 
+### Custom Transformers
 
+# combine attributes
+attr_addr = tf.CombinedAttributesAdder(add_bedrooms_per_room=False)
+housing_extra_attribs = attr_addr.transform(housing.values)
 
+### Feature scaling
 
+# create a transformation pipeline for standard scaler estimation
+# TODO - move to common transformation.py module
+num_pipeline = Pipeline([
+		('imputer', SimpleImputer(strategy="median")),
+		('attribs_adder', tf.CombinedAttributesAdder()),
+		('std_scaler', StandardScaler()),
+	])
+# housing_num_tr = num_pipeline.fit_transform(housing_num)
 
+# constructor requires a list of tuples: [name,transformer,list of indices]
+full_pipeline = ColumnTransformer([
+		("num",num_pipeline,list(housing_num)),
+		("cat",OneHotEncoder(),["ocean_proximity"]),
+	])
+# apply the full pipeline to the housing data
+# ColumnTransformer applies each transformer to the appropriate columns and
+# 	concatenates the outputs along the second axis
+housing_prepared = full_pipeline.fit_transform(housing)
+
+### Traning and evaluating on the Training Set
+
+# TODO
