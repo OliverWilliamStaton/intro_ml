@@ -10,6 +10,10 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
+from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import cross_val_score
 
 DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
 HOUSING_PATH = os.path.join("datasets","housing")
@@ -201,4 +205,108 @@ housing_prepared = full_pipeline.fit_transform(housing)
 
 ### Traning and evaluating on the Training Set
 
-# TODO
+# model 1: linear regression model
+lin_reg = LinearRegression()
+lin_reg.fit(housing_prepared,housing_labels)
+
+# test out the data
+some_data = housing.iloc[:5]
+some_labels = housing_labels.iloc[:5]
+some_date_prepared = full_pipeline.transform(some_data)
+print("Predictions:",lin_reg.predict(some_date_prepared))
+print("Labels:",list(some_labels))
+
+# measure RMSE on the whole training set
+housing_predictions = lin_reg.predict(housing_prepared)
+lin_mse = mean_squared_error(housing_labels,housing_predictions)
+lin_rmse = np.sqrt(lin_mse)
+# lin_rmse # answer = 68628.19819848922 (underfitting)
+
+# model 2: decision tree regressor
+tree_reg = DecisionTreeRegressor()
+tree_reg.fit(housing_prepared,housing_labels)
+
+# test out the data
+some_data = housing.iloc[:5]
+some_labels = housing_labels.iloc[:5]
+some_date_prepared = full_pipeline.transform(some_data)
+print("Predictions:",tree_reg.predict(some_date_prepared))
+print("Labels:",list(some_labels))
+
+# test out the data
+housing_predictions = tree_reg.predict(housing_prepared)
+tree_mse = mean_squared_error(housing_labels,housing_predictions)
+tree_rmse = np.sqrt(tree_mse)
+tree_rmse # answer = 0.0 (overfitting)
+
+# model 3: random forest regressor
+from sklearn.ensemble import RandomForestRegressor
+forest_reg = RandomForestRegressor()
+forest_reg.fit(housing_prepared,housing_labels)
+
+# test out the data
+some_data = housing.iloc[:5]
+some_labels = housing_labels.iloc[:5]
+some_date_prepared = full_pipeline.transform(some_data)
+print("Predictions:",forest_reg.predict(some_date_prepared))
+print("Labels:",list(some_labels))
+
+# test out the data
+housing_predictions = forest_reg.predict(housing_prepared)
+forest_mse = mean_squared_error(housing_labels,housing_predictions)
+forest_rmse = np.sqrt(forest_mse)
+forest_rmse # answer = 18680.2942402
+
+def display_scores(scores):
+	print("Scores:",scores)
+	print("Mean:",scores.mean())
+	print("Standard deviation:",scores.std())
+
+# better evaluation using cross-validation (k-fold cross-validation)
+scores = cross_val_score(tree_reg,housing_prepared,housing_labels,scoring="neg_mean_squared_error",cv=10)
+tree_rmse_scores = np.sqrt(-scores)
+display_scores(tree_rmse_scores) # mean score: 71154 +/- 3231
+
+scores = cross_val_score(lin_reg,housing_prepared,housing_labels,scoring="neg_mean_squared_error",cv=10)
+lin_rmse_scores = np.sqrt(-scores)
+display_scores(lin_rmse_scores) # mean score: 69052 +/- 2731
+
+scores = cross_val_score(forest_reg,housing_prepared,housing_labels,scoring="neg_mean_squared_error",cv=10)
+forest_rmse_scores = np.sqrt(-scores)
+display_scores(forest_rmse_scores) # mean score: 50150 +/- 1902
+
+### fine-tune your model
+
+# automatically explore hyperparameter combinations
+# GridSearchCV searches and cross-validates possible combinations
+from sklearn.model_selection import GridSearchCV
+param_grid = [
+	{'n_estimators':[3,10,30],'max_features':[2,4,6,8]},
+	{'bootstrap':[False],'n_estimators':[3,10],'max_features':[2,3,4]},
+]
+forest_reg = RandomForestRegressor()
+grid_search = GridSearchCV(forest_reg,param_grid,cv=5,scoring='neg_mean_squared_error',return_train_score=True)
+grid_search.fit(housing_prepared,housing_labels)
+
+# determine best hyperparameters & estimator
+grid_search.best_params_
+grid_search.best_estimator_
+
+# determine evaluation scores
+cvres = grid_search.cv_results_
+for mean_score,params in zip(cvres["mean_test_score"],cvres["params"]):
+	print(np.sqrt(-mean_score),params)
+
+### evaluate system on Test Set
+
+final_model = grid_search.best_estimator_
+
+x_test = strat_test_set.drop("median_house_value",axis=1)
+y_test = strat_test_set["median_house_value"].copy()
+
+x_test_prepared = full_pipeline.transform(x_test)
+final_predictions = final_model.predict(x_test_prepared)
+
+final_mse = mean_squared_error(y_test,final_predictions)
+final_rmse = np.sqrt(final_mse)
+display_scores(final_rmse) #48760
